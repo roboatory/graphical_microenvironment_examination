@@ -23,6 +23,24 @@ class TumorGCNClassifier(nn.Module):
         self.fc1 = nn.Linear(hidden_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, num_classes)
     
+    def extract_embedding(self, x, edge_index, batch):
+        """extract graph embeddings after pooling and before classification
+
+        args:
+            x (tensor): input node features
+            edge_index (tensor): edge indices
+            batch (tensor): batch vector
+        """
+
+        x = torch.relu(self.conv1(x, edge_index))
+        x = torch.relu(self.conv2(x, edge_index))
+
+        x = self.pool(self.conv3(x, edge_index), batch)
+
+        embedding = torch.relu(self.fc1(x))
+        
+        return embedding
+    
     def forward(self, x, edge_index, batch):
         """forward pass of the model
 
@@ -61,6 +79,24 @@ class TumorGINClassifier(nn.Module):
 
         self.fc1 = nn.Linear(hidden_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, num_classes)
+    
+    def extract_embedding(self, x, edge_index, batch):
+        """extract graph embeddings after pooling and before classification
+
+        args:
+            x (tensor): input node features
+            edge_index (tensor): edge indices
+            batch (tensor): batch vector
+        """
+
+        x = torch.relu(self.conv1(x, edge_index))
+        x = torch.relu(self.conv2(x, edge_index))
+
+        x = self.pool(self.conv3(x, edge_index), batch)
+
+        embedding = torch.relu(self.fc1(x))
+        
+        return embedding
     
     def forward(self, x, edge_index, batch):
         """forward pass of the model
@@ -102,6 +138,24 @@ class TumorGATClassifier(nn.Module):
 
         self.fc1 = nn.Linear(hidden_dim * heads, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, num_classes)
+    
+    def extract_embedding(self, x, edge_index, batch):
+        """extract graph embeddings after pooling and before classification
+
+        args:
+            x (tensor): input node features
+            edge_index (tensor): edge indices
+            batch (tensor): batch vector
+        """
+
+        x = torch.relu(self.conv1(x, edge_index))
+        x = torch.relu(self.conv2(x, edge_index))
+
+        x = self.pool(self.conv3(x, edge_index), batch)
+
+        embedding = torch.relu(self.fc1(x))
+        
+        return embedding
     
     def forward(self, x, edge_index, batch):
         """forward pass of the model
