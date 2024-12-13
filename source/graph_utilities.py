@@ -79,15 +79,6 @@ def plot_microenvironment(microenvironment, center_node, ax):
 
     nx.draw_networkx_nodes(microenvironment, positions, nodelist = [center_node], node_color = "none", edgecolors = "red", linewidths = 2, ax = ax)
 
-    ax.set_aspect("equal")
-
-    x_coords = [pos[0] for pos in positions.values()]
-    y_coords = [pos[1] for pos in positions.values()]
-    
-    margin = 10
-    ax.set_xlim(min(x_coords) - margin, max(x_coords) + margin)
-    ax.set_ylim(min(y_coords) - margin, max(y_coords) + margin)
-
 def construct_sample_graph(delaunay, assignments):
     """constructs a sample graph from the delaunay triangulation and cell type assignments
 

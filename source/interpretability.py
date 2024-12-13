@@ -4,12 +4,14 @@ from sklearn.cluster import KMeans
 import torch
 import umap
 
-def plot_training_losses(training_loss_file):
+def plot_training_losses(training_loss_file, ax = None):
     """plots the training losses over epochs from a given file
 
     args:
-        training_loss_file (_type_): path to the file containing training loss data; \
-                                     each line in the file should be a dictionary with keys 'epoch' and 'train_loss'
+        training_loss_file (str): path to the file containing training loss data; \
+                                  each line in the file should be a dictionary with keys 'epoch' and 'train_loss'
+        ax (axes, optional): the axes on which to plot the figure; \
+                             defaults to None, in which case a new figure and axes will be created
     """
 
     epochs = []
@@ -21,17 +23,39 @@ def plot_training_losses(training_loss_file):
             epochs.append(data["epoch"])
             losses.append(data["train_loss"])
 
-    plt.plot(epochs, losses, marker = "o")
-    
-    plt.xlabel("epoch")
-    plt.ylabel("training loss")
-    plt.title("training loss over epochs")
+    if ax is None:
+        _, ax = plt.subplots()
 
-    plt.grid(True)
+    ax.plot(epochs, losses, marker = "o")
+    
+    ax.set_xlabel("epoch")
+    ax.set_ylabel("training loss")
+    ax.set_title("training loss over epochs")
+
+    ax.grid(True)
+
+    return ax
+
+def plot_joint_training_losses(training_loss_files, model_types):
+    """plots the training losses for multiple models on the same plot
+
+    args:
+        model_types (list): list of model types
+        training_loss_files (list): list of file paths containing training loss data for each model
+    """
+
+    _, ax = plt.subplots()
+
+    for training_loss_file in training_loss_files:
+        plot_training_losses(training_loss_file, ax = ax)
+
+    ax.legend(model_types)
+
+    plt.savefig(f"images/joint_training_loss.png")
 
     plt.show()
 
-def plot_performance_measures(training_metrics_file, evaluation_metrics_file, metric = "accuracy"):
+def plot_performance_measures(training_metrics_file, evaluation_metrics_file, model_type, metric = "accuracy", ax = None):
     """plots the performance measures over epochs from given files
 
     args:
@@ -39,8 +63,11 @@ def plot_performance_measures(training_metrics_file, evaluation_metrics_file, me
                                      each line in the file should be a dictionary with keys 'epoch' and the specified metric
         evaluation_metrics_file (str): path to the file containing evaluation metrics data; \
                                        each line in the file should be a dictionary with keys 'epoch' and the specified metric
+        model_type (str): the type of model being evaluated
         metric (str, optional): the performance measure to plot; \
                                 defaults to 'accuracy'
+        ax (axes, optional): the axes on which to plot the figure; \
+                             defaults to None, in which case a new figure and axes will be created
     """
 
     train_epochs = []
@@ -52,8 +79,6 @@ def plot_performance_measures(training_metrics_file, evaluation_metrics_file, me
             train_epochs.append(data["epoch"])
             train_metrics.append(data[metric])
 
-    plt.plot(train_epochs, train_metrics, marker = "o", label = "training")
-
     evaluation_epochs = []
     evaluation_metrics = []
 
@@ -63,16 +88,20 @@ def plot_performance_measures(training_metrics_file, evaluation_metrics_file, me
             evaluation_epochs.append(data["epoch"])
             evaluation_metrics.append(data[metric])
 
-    plt.plot(evaluation_epochs, evaluation_metrics, marker = "x", label = "evaluation")
+    if ax is None:
+        _, ax = plt.subplots()
 
-    plt.xlabel("epoch")
-    plt.ylabel(metric)
-    plt.title(f"{metric} over epochs")
-    plt.legend()
+    ax.plot(train_epochs, train_metrics, marker = "o", label = "training")
+    ax.plot(evaluation_epochs, evaluation_metrics, marker = "x", label = "evaluation")
 
-    plt.grid(True)
+    ax.set_xlabel("epoch")
+    ax.set_ylabel(metric)
+    ax.set_title(f"{model_type} {metric} over epochs")
+    ax.legend()
 
-    plt.show()
+    ax.grid(True)
+
+    return ax
 
 def extract_embeddings(model, loader, device):
     """extracts embeddings, probability predictions, and labels from a given model and dataloader
@@ -120,8 +149,8 @@ def visualize_embeddings(embeddings, probability_predictions, k):
     reducer = umap.UMAP(n_components = 2)
     clusterer = KMeans(n_clusters = k, random_state = 42)
 
-    reduced_embeddings = reducer.fit_transform(embeddings.numpy())
-    cluster_labels = clusterer.fit_predict(embeddings.numpy())
+    reduced_embeddings = reducer.fit_transform(embeddings.cpu().numpy())
+    cluster_labels = clusterer.fit_predict(embeddings.cpu().numpy())
 
     cluster_average_predictions = [probability_predictions[cluster_labels == c].mean().item() for c in range(k)]
 
