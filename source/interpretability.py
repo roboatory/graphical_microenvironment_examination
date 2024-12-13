@@ -203,6 +203,8 @@ def visualize_embeddings(embeddings, probability_predictions, cell_type_proporti
     ax.set_xlabel("cell types")
     ax.set_ylabel("clusters")
 
+    plt.tight_layout()
+
     plt.savefig(f"images/{model_type}_log_fold_change_cluster_cell_type_proportions.png")
     
     plt.show()
