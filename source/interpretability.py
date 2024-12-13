@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 import torch
 import umap
+import seaborn as sns
+import pandas as pd
 
 def plot_training_losses(training_loss_file, ax = None):
     """plots the training losses over epochs from a given file
@@ -104,7 +106,7 @@ def plot_performance_measures(training_metrics_file, evaluation_metrics_file, mo
     return ax
 
 def extract_embeddings(model, loader, device):
-    """extracts embeddings, probability predictions, and labels from a given model and dataloader
+    """extracts embeddings, probability predictions, and cell type proportions from a given model and dataloader
 
     args:
         model (module): the model used to extract embeddings and make predictions
@@ -116,7 +118,7 @@ def extract_embeddings(model, loader, device):
 
     embeddings = []
     probability_predictions = []
-    labels = []
+    cell_type_proportions = []
 
     with torch.no_grad():
         for batch in loader:
@@ -129,20 +131,29 @@ def extract_embeddings(model, loader, device):
             predicted_probabilities = torch.softmax(logits, dim = 1)[:, 1]
             probability_predictions.append(predicted_probabilities)
 
-            labels.append(batch.y.cpu())
-    
-    embeddings = torch.cat(embeddings, dim = 0)
-    probability_predictions = torch.cat(probability_predictions, dim = 0)
-    labels = torch.cat(labels, dim = 0)
+            for i in range(batch.num_graphs):
+                cell_counts = torch.bincount(
+                    batch.x[batch.batch == i].argmax(dim = 1), minlength = batch.x.size(1)
+                ).float().to(device)
+                
+                cell_proportion = cell_counts / (batch.batch == i).sum().float().to(device)
+                cell_type_proportions.append(cell_proportion)
 
-    return embeddings, probability_predictions, labels
+    embeddings = torch.cat(embeddings)
+    probability_predictions = torch.cat(probability_predictions)
+    cell_type_proportions = torch.stack(cell_type_proportions)
 
-def visualize_embeddings(embeddings, probability_predictions, k):
-    """visualize the embeddings using UMAP for dimensionality reduction and kmeans for clustering
+    return embeddings, probability_predictions, cell_type_proportions
+
+def visualize_embeddings(embeddings, probability_predictions, cell_type_proportions, model_type, mapping, k):
+    """visualize the embeddings using UMAP for dimensionality reduction and k-means for clustering
 
     args:
         embeddings (tensor): the high-dimensional embeddings to be visualized
         probability_predictions (tensor): the probability predictions associated with each embedding
+        cell_type_proportions (tensor): the cell type proportions associated with each embedding
+        model_type (str): the type of model used to generate the embeddings
+        mapping (dict): a mapping from cell type names to cell type indices
         k (int): the number of clusters to form
     """
     
@@ -165,4 +176,44 @@ def visualize_embeddings(embeddings, probability_predictions, k):
     plt.xlabel("UMAP_1")
     plt.ylabel("UMAP_2")
 
+    plt.savefig(f"images/{model_type}_umap_embeddings.png")
+
+    cluster_cell_type_proportions = torch.zeros((k, cell_type_proportions.size(1))).to(cell_type_proportions.device)
+
+    for c in range(k):
+        cluster_cell_type_proportions[c] = cell_type_proportions[cluster_labels == c].mean(dim = 0)
+
+    global_cell_type_proportions = cell_type_proportions.mean(dim = 0).to(cell_type_proportions.device)
+    log_fold_change = torch.log(cluster_cell_type_proportions / global_cell_type_proportions)
+
+    cluster_data = {
+        "cluster": [f"cluster {i}" for i in range(k)]
+    }
+
+    cell_type_names = {v: k for k, v in mapping.items()}
+    for i in range(cell_type_proportions.size(1)):
+        cluster_data[cell_type_names[i]] = log_fold_change[:, i].cpu().numpy()
+
+    cluster_df = pd.DataFrame(cluster_data)
+
+    _, ax = plt.subplots(figsize = (12, 8))
+    sns.heatmap(cluster_df.set_index("cluster"), annot = False, cmap = "coolwarm", ax = ax)
+
+    ax.set_title("log fold change of cell type proportions per cluster")
+    ax.set_xlabel("cell types")
+    ax.set_ylabel("clusters")
+
+    plt.savefig(f"images/{model_type}_log_fold_change_cluster_cell_type_proportions.png")
+    
+    plt.show()
+
+    plt.figure(figsize = (8, 6))
+    plt.bar(range(k), cluster_average_predictions, color = "blue")
+    plt.xlabel("cluster")
+    plt.ylabel("average prediction")
+    plt.title("average predictions per cluster")
+    plt.xticks(range(k))
+
+    plt.savefig(f"images/{model_type}_average_predictions_per_cluster.png")
+    
     plt.show()
